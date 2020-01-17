@@ -249,7 +249,7 @@ class RedisCollector(diamond.collector.Collector):
         """
         return '%s.%s' % (nick, key)
 
-    def _get_info(self, host, port, unix_socket, auth):
+    def _get_info(self, host, port, unix_socket, auth, section = None):
         """Return info dict from specified Redis instance
 
 :param str host: redis host
@@ -262,7 +262,7 @@ class RedisCollector(diamond.collector.Collector):
         if client is None:
             return None
 
-        info = client.info()
+        info = client.info(section)
         del client
         return info
 
@@ -299,6 +299,8 @@ class RedisCollector(diamond.collector.Collector):
         info = self._get_info(host, port, unix_socket, auth)
         if info is None:
             return
+
+        cmdstat = self._get_info(host, port, unix_socket, auth, 'commandstats')
 
         # The structure should include the port for multiple instances per
         # server
@@ -341,6 +343,11 @@ class RedisCollector(diamond.collector.Collector):
         for key in self._RENAMED_KEYS:
             if self._RENAMED_KEYS[key] in info:
                 data[key] = info[self._RENAMED_KEYS[key]]
+
+        if cmdstat is not None:
+            for key in cmdstat:
+                for s_key in cmdstat[key]:
+                    data[key + '.' + s_key] = cmdstat[key][s_key]
 
         # Look for databaase speific stats
         for dbnum in range(0, int(self.config.get('databases',
